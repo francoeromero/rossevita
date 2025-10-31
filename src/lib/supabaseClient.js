@@ -8,13 +8,67 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Tomamos las variables de entorno que Vite expone en tiempo de build/runtime.
-// Si prefieres, puedes reemplazar las cadenas vacías con tus valores (no recomendado).
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'SUPABASE_URL_GOES_HERE';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'SUPABASE_ANON_KEY_GOES_HERE';
+// Helper: try several places for env values so deployments that inject at runtime
+// can still work. Vite sets import.meta.env at build time; some hosts require a
+// runtime injection (window.__env) or via meta tags.
+function readRuntimeEnv() {
+	// 1) build-time Vite vars
+	const viteUrl = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_URL : undefined;
+	const viteKey = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_ANON_KEY : undefined;
+	if (viteUrl && viteKey) return { url: viteUrl, key: viteKey };
 
-// Crea el cliente supabase que exportaremos para usar en toda la app.
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+	// 2) runtime global (window.__env) — useful if you generate a small script that
+	// writes window.__env = { VITE_SUPABASE_URL: '...', VITE_SUPABASE_ANON_KEY: '...' };
+	if (typeof window !== 'undefined' && window.__env && window.__env.VITE_SUPABASE_URL && window.__env.VITE_SUPABASE_ANON_KEY) {
+		return { url: window.__env.VITE_SUPABASE_URL, key: window.__env.VITE_SUPABASE_ANON_KEY };
+	}
+
+	// 3) meta tags in index.html: <meta name="vite-supabase-url" content="...">
+	try {
+		if (typeof document !== 'undefined') {
+			const mUrl = document.querySelector('meta[name="vite-supabase-url"]')?.getAttribute('content');
+			const mKey = document.querySelector('meta[name="vite-supabase-anon-key"]')?.getAttribute('content');
+			if (mUrl && mKey) return { url: mUrl, key: mKey };
+		}
+	} catch (e) {
+		// ignore
+	}
+
+	return { url: null, key: null };
+}
+
+function isValidUrl(u) {
+	try {
+		if (!u) return false;
+		const p = new URL(u);
+		return p.protocol === 'http:' || p.protocol === 'https:';
+	} catch (e) {
+		return false;
+	}
+}
+
+const runtime = readRuntimeEnv();
+const SUPABASE_URL = runtime.url || null;
+const SUPABASE_ANON_KEY = runtime.key || null;
+
+let supabase;
+if (!isValidUrl(SUPABASE_URL) || !SUPABASE_ANON_KEY) {
+	// Provide a clear developer-friendly error and export a stub that throws on use.
+	// This avoids cryptic stack traces from deep in the SDK.
+	// eslint-disable-next-line no-console
+	console.error('Supabase not configured: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not found or invalid.\n' +
+		'Set these as build-time env vars (Vite) or provide runtime values via window.__env or meta tags.\n' +
+		'See README or project docs for instructions.');
+
+	// Minimal stub to fail fast if used.
+	supabase = new Proxy({}, {
+		get() { throw new Error('Supabase client is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'); }
+	});
+} else {
+	supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+export { supabase };
 
 // Nota: Para operaciones de servidor seguras (ej. backups, triggers) usa la
 // service_role key en un entorno backend seguro — nunca desde el cliente.
