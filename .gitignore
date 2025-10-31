@@ -1,1 +1,7 @@
+/copiaseg1.rar
+/rossevita.zip
 /node_modules
+.env
+.env.*
+.env.local
+.env.server
