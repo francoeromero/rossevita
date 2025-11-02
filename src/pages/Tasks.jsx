@@ -288,7 +288,7 @@ const Tasks = ({ user }) => {
                 </div>
               </div>
               {/* Debug panel: shows raw data sources used to build the files list. Remove in production. */}
-              <details className="mt-3 p-2 bg-gray-50 border rounded">
+              {/* <details className="mt-3 p-2 bg-gray-50 border rounded">
                 <summary className="cursor-pointer text-sm text-gray-700">Debug: ver fuentes (storage / attachments / local cache)</summary>
                 <div className="mt-2 text-xs text-gray-600">
                   <div><strong>storage.list raw:</strong></div>
@@ -298,7 +298,7 @@ const Tasks = ({ user }) => {
                   <div className="mt-2"><strong>local uploads_cache:</strong></div>
                   <pre style={{whiteSpace: 'pre-wrap', maxHeight: 160, overflow: 'auto'}}>{JSON.stringify(localCacheRaw, null, 2)}</pre>
                 </div>
-              </details>
+              </details> */}
               {/* Mostrar lista de archivos (fusionados) para que queden visibles en la UI */}
               <div className="mt-4">
                 <h3 className="text-lg font-medium">Archivos subidos</h3>
