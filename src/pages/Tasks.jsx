@@ -27,6 +27,7 @@ const Tasks = ({ user }) => {
   const [localCacheRaw, setLocalCacheRaw] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null); // archivo seleccionado en el input
   const [uploading, setUploading] = useState(false); // indicador de carga
+  const [activeFilesTab, setActiveFilesTab] = useState('1');
 
   useEffect(() => {
     const stored = localStorage.getItem('tasks');
@@ -99,12 +100,18 @@ const Tasks = ({ user }) => {
       })();
       setLocalCacheRaw(localCache);
 
-      // Merge: prioridad -> attachments (DB) -> enriched (storage list) -> localCache
-      const mergedByName = {};
-      attachments.forEach((it) => { if (it && it.name) mergedByName[it.name] = it; });
-      enriched.forEach((it) => { if (it && it.name && !mergedByName[it.name]) mergedByName[it.name] = it; });
-      localCache.forEach((it) => { if (it && it.name && !mergedByName[it.name]) mergedByName[it.name] = it; });
-      const merged = Object.values(mergedByName).sort((a, b) => (new Date(b.created_at || 0)) - (new Date(a.created_at || 0)));
+  // Merge sources into a final list.
+  // Use storage (enriched) to prefer publicUrl and metadata from Storage when available,
+  // then fallback to attachments (DB) fields, and finally localCache can override/add client-only fields.
+  const mergedByName = {};
+  // Start from attachments (DB) as base
+  attachments.forEach((it) => { if (it && it.name) mergedByName[it.name] = { ...it }; });
+  // Merge storage fields on top (prefer publicUrl/size/created_at from storage)
+  enriched.forEach((it) => { if (it && it.name) mergedByName[it.name] = { ...(mergedByName[it.name] || {}), ...it }; });
+  // Finally merge local cache to preserve client-only flags (e.g., group)
+  localCache.forEach((it) => { if (it && it.name) mergedByName[it.name] = { ...(mergedByName[it.name] || {}), ...it }; });
+
+  const merged = Object.values(mergedByName).sort((a, b) => (new Date(b.created_at || 0)) - (new Date(a.created_at || 0)));
 
       setFiles(merged);
       // for debug: log merged
@@ -264,7 +271,22 @@ const Tasks = ({ user }) => {
           <p className="text-gray-600 mt-1">Gestiona las tareas de cada sede</p>
           {/* Simple uploader: un pequeño widget para subir jpg/pdf sin depender del modal */}
           <div className="mt-4">
-              <SimpleUploader onUploaded={handleUploaded} />
+              <div className="flex items-center gap-4 mb-3">
+                <button onClick={() => setActiveFilesTab('1')} className={`px-3 py-1 rounded ${activeFilesTab === '1' ? 'bg-pink-600 text-white' : 'bg-white border'}`}>Rosse Constituyentes</button>
+                <button onClick={() => setActiveFilesTab('2')} className={`px-3 py-1 rounded ${activeFilesTab === '2' ? 'bg-pink-600 text-white' : 'bg-white border'}`}>Rosse Illia</button>
+              </div>
+
+              {/* Uploader placed under the tab buttons. Only the uploader for the active tab is shown. */}
+              <div className="mt-2">
+                <div className="flex gap-2">
+                  {activeFilesTab === '1' ? (
+                    <div className="w-56"><SimpleUploader onUploaded={handleUploaded} group="1" /></div>
+                  ) : null}
+                  {activeFilesTab === '2' ? (
+                    <div className="w-56"><SimpleUploader onUploaded={handleUploaded} group="2" /></div>
+                  ) : null}
+                </div>
+              </div>
               {/* Debug panel: shows raw data sources used to build the files list. Remove in production. */}
               <details className="mt-3 p-2 bg-gray-50 border rounded">
                 <summary className="cursor-pointer text-sm text-gray-700">Debug: ver fuentes (storage / attachments / local cache)</summary>
@@ -284,7 +306,7 @@ const Tasks = ({ user }) => {
                   <p className="text-sm text-gray-500">No hay archivos disponibles.</p>
                 ) : (
                   <ul className="mt-2 space-y-2">
-                    {files.map((f) => (
+                    {files.filter(f => (f.group || '1') === activeFilesTab).map((f) => (
                       <li key={f.name} className="text-sm">
                         <a href={f.publicUrl || getPublicUrl(f.name)} target="_blank" rel="noreferrer" className="text-pink-600 underline">
                           {f.name}
