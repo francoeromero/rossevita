@@ -108,8 +108,32 @@ const Tasks = ({ user }) => {
   attachments.forEach((it) => { if (it && it.name) mergedByName[it.name] = { ...it }; });
   // Merge storage fields on top (prefer publicUrl/size/created_at from storage)
   enriched.forEach((it) => { if (it && it.name) mergedByName[it.name] = { ...(mergedByName[it.name] || {}), ...it }; });
-  // Finally merge local cache to preserve client-only flags (e.g., group)
+      // Finally merge local cache to preserve client-only flags (e.g., group)
   localCache.forEach((it) => { if (it && it.name) mergedByName[it.name] = { ...(mergedByName[it.name] || {}), ...it }; });
+
+  // If a file was deleted from storage (and there's no DB attachments record),
+  // remove it from the merged list and from local cache so the UI no longer shows its card.
+  // Build a set of names that actually exist in storage or attachments.
+  const storageNames = new Set((enriched || []).map(i => i && i.name).filter(Boolean));
+  const attachmentNames = new Set((attachments || []).map(i => i && i.name).filter(Boolean));
+  const presentNames = new Set([...storageNames, ...attachmentNames]);
+
+  // Remove any merged entries that are only in localCache (i.e., not present in storage nor attachments)
+  Object.keys(mergedByName).forEach((name) => {
+    if (!presentNames.has(name)) {
+      // This entry was only from localCache and the underlying file no longer exists server-side.
+      delete mergedByName[name];
+    }
+  });
+
+  // Also update localStorage cache to remove entries referencing deleted server files
+  const cleanedLocalCache = (localCache || []).filter(it => it && it.name && presentNames.has(it.name));
+  try {
+    localStorage.setItem('uploads_cache', JSON.stringify(cleanedLocalCache));
+    setLocalCacheRaw(cleanedLocalCache);
+  } catch (e) {
+    // ignore localStorage errors
+  }
 
   const merged = Object.values(mergedByName).sort((a, b) => (new Date(b.created_at || 0)) - (new Date(a.created_at || 0)));
 
@@ -306,15 +330,47 @@ const Tasks = ({ user }) => {
                   <p className="text-sm text-gray-500">No hay archivos disponibles.</p>
                 ) : (
                   <ul className="mt-2 space-y-2">
-                    {files.filter(f => (f.group || '1') === activeFilesTab).map((f) => (
-                      <li key={f.name} className="text-sm">
-                        <a href={f.publicUrl || getPublicUrl(f.name)} target="_blank" rel="noreferrer" className="text-pink-600 underline">
-                          {f.name}
-                        </a>
-                        {f.size ? <span className="text-gray-500 ml-2">({Math.round(f.size / 1024)} KB)</span> : null}
-                        {f.created_at ? <span className="text-gray-400 ml-2">{new Date(f.created_at).toLocaleString()}</span> : null}
-                      </li>
-                    ))}
+                    {files.filter(f => (f.group || '1') === activeFilesTab).map((f) => {
+                      const uploaderName = f.user_name || (user && (user.user_metadata?.full_name || user.email)) || 'Usuario';
+                      const uploaderAvatar = f.user_avatar || (user && user.user_metadata?.avatar_url) || null;
+                      const formattedDate = f.created_at ? new Date(f.created_at).toLocaleString() : null;
+                      const initials = uploaderName.split(' ').map(n => n[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+                      return (
+                        <li key={f.name} className="text-sm">
+                          <div className="bg-white border border-gray-200 rounded-md p-3 shadow-sm">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0 flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-sm text-gray-600">
+                                  {uploaderAvatar ? (
+                                    <img src={uploaderAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="font-medium">{initials}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-sm font-medium text-gray-800 truncate">{uploaderName}</div>
+                                    {formattedDate ? <div className="text-xs text-gray-400">{formattedDate}</div> : null}
+                                  </div>
+                                  <a href={f.publicUrl || getPublicUrl(f.name)} target="_blank" rel="noreferrer" className="text-pink-600 underline font-medium block truncate mt-1">
+                                    {f.name}
+                                  </a>
+                                  <div className="mt-1 text-xs text-gray-500">
+                                    {f.size ? <span>({Math.round(f.size / 1024)} KB)</span> : null}
+                                  </div>
+                                  <a href="#" className="text-pink-600 underline mt-2 block text-sm">Agregar comentarios</a>
+                                </div>
+                              </div>
+                              <div className="flex-shrink-0 text-right">
+                                {f.group ? (
+                                  <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">Subida {f.group}</span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
