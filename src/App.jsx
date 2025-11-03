@@ -9,6 +9,7 @@ import Suppliers from '@/pages/Suppliers';
 import Reports from '@/pages/Reports';
 import Tasks from '@/pages/Tasks';
 import Settings from '@/pages/Settings';
+import Eventos from '@/pages/Eventos';
 import Layout from '@/components/Layout';
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
         <Route path="/insumos" element={<Supplies user={currentUser} />} />
         <Route path="/proveedores" element={<Suppliers user={currentUser} />} />
         <Route path="/reportes" element={<Reports user={currentUser} />} />
+    <Route path="/eventos" element={<Eventos user={currentUser} />} />
         <Route path="/tareas" element={<Tasks user={currentUser} />} />
         <Route path="/configuracion" element={<Settings user={currentUser} />} />
       </Routes>

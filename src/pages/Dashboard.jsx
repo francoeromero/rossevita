@@ -1,4 +1,5 @@
 import React from 'react';
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { DollarSign, TrendingUp, ShoppingCart, Users, FileText } from 'lucide-react';
@@ -34,11 +35,148 @@ const recentActivity = [
   { name: 'Caja de Bolígrafos', date: '19/8/2025', amount: 36 }
 ];
 
+// Simple list component that loads events from localStorage and shows price
+function EventsList() {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('events') || '[]');
+      setEvents(Array.isArray(raw) ? raw : []);
+    } catch (e) {
+      setEvents([]);
+    }
+  }, []);
+
+  const fmt = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
+
+  if (!events || events.length === 0) return <p className="text-sm text-gray-500">No hay eventos registrados.</p>;
+
+  return (
+    <div className="space-y-3">
+      {events.map((ev) => {
+        const priceNum = ev && ev.price != null && ev.price !== '' ? parseFloat(ev.price) : null;
+        return (
+          <div key={ev.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div>
+              <p className="font-medium text-gray-900 text-sm">{ev.title}</p>
+              <p className="text-xs text-gray-500">{ev.date_from || '—'}</p>
+            </div>
+            <div className="text-sm font-semibold text-gray-900">{priceNum != null && !isNaN(priceNum) ? fmt.format(priceNum) : '—'}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Monthly Ingresos Chart computed from events' price by date_from
+function MonthlyIngresosChart() {
+  const [data, setData] = useState([
+    { month: 'Ene', ingreso: 0 },
+    { month: 'Feb', ingreso: 0 },
+    { month: 'Mar', ingreso: 0 },
+    { month: 'Abr', ingreso: 0 },
+    { month: 'May', ingreso: 0 },
+    { month: 'Jun', ingreso: 0 },
+    { month: 'Jul', ingreso: 0 },
+    { month: 'Ago', ingreso: 0 },
+    { month: 'Sep', ingreso: 0 },
+    { month: 'Oct', ingreso: 0 },
+    { month: 'Nov', ingreso: 0 },
+    { month: 'Dic', ingreso: 0 }
+  ]);
+
+  useEffect(() => {
+    const compute = () => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('events') || '[]');
+        const sums = new Array(12).fill(0);
+        if (Array.isArray(raw)) {
+          raw.forEach(ev => {
+            if (!ev) return;
+            const dateStr = ev.date_from;
+            const price = ev.price != null && ev.price !== '' ? parseFloat(String(ev.price).replace(/\./g,'').replace(/,/g,'.')) : NaN;
+            if (!dateStr || isNaN(price)) return;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return;
+            const m = d.getMonth();
+            sums[m] += price;
+          });
+        }
+        const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        setData(months.map((m, i) => ({ month: m, ingreso: Math.round((sums[i] + Number.EPSILON) * 100) / 100 })));
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    compute();
+
+    const onEventsChanged = () => compute();
+    window.addEventListener('events:changed', onEventsChanged);
+    return () => window.removeEventListener('events:changed', onEventsChanged);
+  }, []);
+
+  return (
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Ingresos Mensuales (2025)</h3>
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey="month" stroke="#6b7280" />
+          <YAxis stroke="#6b7280" />
+          <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} formatter={(value) => `$${value}`} />
+          <Bar dataKey="ingreso" fill="#10B981" radius={[8,8,0,0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 const Dashboard = ({ user }) => {
+  const currentMonthIndex = new Date().getMonth();
+  const gastoMensualValue = monthlyData[currentMonthIndex] ? monthlyData[currentMonthIndex].gasto : 0;
+  const gastoMensualDisplay = `$${gastoMensualValue}`;
+
+  // compute event-based monthly sums so we can show current-month ingresos/egresos
+  const [eventMonthlySums, setEventMonthlySums] = useState(new Array(12).fill(0));
+  useEffect(() => {
+    const compute = () => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('events') || '[]');
+        const sums = new Array(12).fill(0);
+        if (Array.isArray(raw)) {
+          raw.forEach(ev => {
+            if (!ev) return;
+            const dateStr = ev.date_from;
+            const price = ev.price != null && ev.price !== '' ? parseFloat(String(ev.price).replace(/\./g,'').replace(/,/g,'.')) : NaN;
+            if (!dateStr || isNaN(price)) return;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return;
+            sums[d.getMonth()] += price;
+          });
+        }
+        setEventMonthlySums(sums.map(v => Math.round((v + Number.EPSILON) * 100) / 100));
+      } catch (e) {
+        setEventMonthlySums(new Array(12).fill(0));
+      }
+    };
+
+    compute();
+    const onEventsChanged = () => compute();
+    window.addEventListener('events:changed', onEventsChanged);
+    return () => window.removeEventListener('events:changed', onEventsChanged);
+  }, []);
+
+  const fmtCurrency = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
+  const currentMonthEventSum = eventMonthlySums[currentMonthIndex] || 0;
+  const currentMonthEventDisplay = fmtCurrency.format(currentMonthEventSum);
+
   const stats = [
     { 
       title: 'Gasto Mensual', 
-      value: '$135', 
+      value: gastoMensualDisplay, 
       subtitle: 'Mes actual',
       icon: DollarSign,
       color: 'bg-blue-500'
@@ -58,9 +196,9 @@ const Dashboard = ({ user }) => {
       color: 'bg-gray-700'
     },
     { 
-      title: 'Empleado Top', 
-      value: 'Carlos Ruiz', 
-      subtitle: 'Mayor gasto',
+      title: 'Egresos Mensuales', 
+      value: currentMonthEventDisplay, 
+      subtitle: 'Mes actual',
       icon: Users,
       color: 'bg-blue-500'
     },
@@ -144,6 +282,7 @@ const Dashboard = ({ user }) => {
             transition={{ delay: 0.4 }}
             className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
           >
+          
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Actividad Reciente</h3>
             <div className="space-y-3">
               {recentActivity.map((item, index) => (
@@ -164,6 +303,24 @@ const Dashboard = ({ user }) => {
           </motion.div>
         </div>
       </div>
+      {/* Ingresos chart + Events List (side-by-side on large screens) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="mt-6"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <MonthlyIngresosChart />
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Eventos registrados</h3>
+            <EventsList />
+          </div>
+        </div>
+      </motion.div>
     </>
   );
 };
