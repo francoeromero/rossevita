@@ -296,8 +296,14 @@ const Tasks = ({ user }) => {
           {/* Simple uploader: un pequeño widget para subir jpg/pdf sin depender del modal */}
           <div className="mt-4">
               <div className="flex items-center gap-4 mb-3">
-                <button onClick={() => setActiveFilesTab('1')} className={`px-3 py-1 rounded ${activeFilesTab === '1' ? 'bg-pink-600 text-white' : 'bg-white border'}`}>Rosse Constituyentes</button>
-                <button onClick={() => setActiveFilesTab('2')} className={`px-3 py-1 rounded ${activeFilesTab === '2' ? 'bg-pink-600 text-white' : 'bg-white border'}`}>Rosse Illia</button>
+                <button onClick={() => setActiveFilesTab('1')} className={`px-3 py-1 rounded ${activeFilesTab === '1' ? 'bg-pink-600 text-white' : 'bg-white border'}`}>
+                  <Building2 className="inline-block w-4 h-4 mr-2 align-middle" />
+                  Rosse Constituyentes
+                </button>
+                <button onClick={() => setActiveFilesTab('2')} className={`px-3 py-1 rounded ${activeFilesTab === '2' ? 'bg-pink-600 text-white' : 'bg-white border'}`}>
+                  <Building2 className="inline-block w-4 h-4 mr-2 align-middle" />
+                  Rosse Illia
+                </button>
               </div>
 
               {/* Uploader placed under the tab buttons. Only the uploader for the active tab is shown. */}
@@ -377,7 +383,7 @@ const Tasks = ({ user }) => {
           </div>
         </div>
 
-        <Tabs defaultValue="constituyentes" className="w-full">
+        {/* <Tabs defaultValue="constituyentes" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200 p-1 rounded-lg">
             {VENUES.map(venue => (
               <TabsTrigger 
@@ -401,7 +407,7 @@ const Tasks = ({ user }) => {
               />
             </TabsContent>
           ))}
-        </Tabs>
+        </Tabs> */}
       </div>
     </>
   );
