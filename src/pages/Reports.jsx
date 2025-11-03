@@ -56,8 +56,8 @@ const monthlyDetails = {
 
 const Reports = ({ user }) => {
   const [selectedYear, setSelectedYear] = useState('2025');
-  const [selectedMonth, setSelectedMonth] = useState('Octubre');
-  const [selectedGainMonth, setSelectedGainMonth] = useState('Octubre');
+  const [selectedMonth, setSelectedMonth] = useState('Noviembre');
+  const [selectedGainMonth, setSelectedGainMonth] = useState('Noviembre');
   const { toast } = useToast();
 
   const monthNameToIndex = (name) => {
